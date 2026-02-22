@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>当日提出専用 - MISSION PROGRESS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        /* =========================================================
+           1. VARIABLES & BASE SETUP
+           ========================================================= */
+        :root {
+            --c-bg: #0b0f19;
+            --c-panel: rgba(20, 25, 40, 0.8);
+            --c-main: #00e5ff;
+            --c-main-dim: rgba(0, 229, 255, 0.2);
+            --c-success: #00ff88;
+            --c-danger: #ff2a55;
+            --c-text: #c5d0e6;
+            --font-sys: 'Share Tech Mono', monospace;
+            --font-jp: 'Noto Sans JP', sans-serif;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-jp); min-height: 100vh; overflow-x: hidden; }
+
+        /* 背景エフェクト */
+        .scanlines { position: fixed; inset: 0; z-index: 9000; pointer-events: none; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%); background-size: 100% 4px; opacity: 0.5; }
+        .bg-glow { position: fixed; top: 0; left: 50%; width: 100vw; height: 100vh; transform: translateX(-50%); background: radial-gradient(circle at top, rgba(0,229,255,0.1) 0%, transparent 60%); z-index: -1; pointer-events: none; }
+
+        .container { width: 95%; max-width: 800px; margin: 0 auto; padding: 30px 0 100px; position: relative; z-index: 10; }
+
+        /* =========================================================
+           2. HEADER & GLOBAL PROGRESS
+           ========================================================= */
+        header { text-align: center; margin-bottom: 40px; }
+        .title-sys { font-family: var(--font-sys); color: var(--c-main); font-size: 1rem; letter-spacing: 0.2em; text-shadow: 0 0 10px var(--c-main-dim); }
+        .title-main { font-size: 2rem; font-weight: 900; color: #fff; margin: 5px 0; letter-spacing: 0.05em; }
+        .badge-today { display: inline-block; background: var(--c-danger); color: #fff; font-family: var(--font-sys); font-size: 0.8rem; padding: 2px 10px; border-radius: 4px; box-shadow: 0 0 10px var(--c-danger); margin-bottom: 10px; letter-spacing: 0.1em; }
+
+        /* 全体進捗バー */
+        .global-progress-box { background: rgba(0,0,0,0.6); border: 1px solid var(--c-main-dim); height: 40px; border-radius: 20px; position: relative; overflow: hidden; box-shadow: 0 5px 20px rgba(0,0,0,0.5); margin-bottom: 40px; }
+        .global-progress-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: linear-gradient(90deg, var(--c-main-dim), var(--c-main)); box-shadow: 0 0 20px var(--c-main); transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1), background 0.5s; }
+        .global-progress-text { position: absolute; inset: 0; display: flex; justify-content: center; align-items: center; font-family: var(--font-sys); font-size: 1.2rem; font-weight: bold; color: #fff; text-shadow: 1px 1px 3px #000; z-index: 2; letter-spacing: 0.1em; }
+
+        /* =========================================================
+           3. TASK CARDS
+           ========================================================= */
+        .task-list { display: flex; flex-direction: column; gap: 20px; }
+        
+        .task-card { background: var(--c-panel); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); backdrop-filter: blur(10px); transition: 0.4s; }
+        .task-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 8px; }
+        .subj-name { font-size: 1.2rem; font-weight: 900; color: #fff; }
+        .subj-meta { font-family: var(--font-sys); font-size: 0.8rem; color: #888; }
+        
+        .task-desc { font-size: 0.95rem; color: #ddd; line-height: 1.5; margin-bottom: 15px; }
+
+        /* =========================================================
+           4. STEP SLIDER
+           ========================================================= */
+        .slider-track { width: 100%; height: 50px; background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255,255,255,0.1); border-radius: 25px; position: relative; overflow: hidden; box-shadow: inset 0 5px 10px rgba(0,0,0,0.5); }
+        .slider-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: var(--c-main-dim); opacity: 0.5; pointer-events: none; border-radius: 25px 0 0 25px; transition: background 0.3s; }
+        .slider-value-text { position: absolute; inset: 0; display: flex; justify-content: center; align-items: center; font-family: var(--font-sys); font-size: 1.1rem; color: #fff; pointer-events: none; letter-spacing: 0.1em; z-index: 1; text-shadow: 1px 1px 2px #000; }
+        
+        .slider-thumb { position: absolute; top: 3px; left: 3px; width: 42px; height: 42px; background: linear-gradient(135deg, #2a2d3e, #111424); border: 2px solid var(--c-main); border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 10px var(--c-main-dim), inset 0 2px 5px rgba(255,255,255,0.2); z-index: 2; cursor: grab; touch-action: pan-y; transition: border-color 0.3s, background 0.3s, box-shadow 0.3s; }
+        .slider-thumb:active { cursor: grabbing; transform: scale(0.95); }
+
+        /* === 絵文字アニメーション === */
+        .emoji { font-size: 1.3rem; pointer-events: none; display: inline-block; transition: 0.2s; }
+        .lvl-0 { transform: scale(1); filter: grayscale(50%); }
+        .lvl-1 { animation: shake-light 0.5s infinite ease-in-out; }
+        .lvl-2 { animation: shake-hard 0.2s infinite ease-in-out; transform: scale(1.1); }
+        .lvl-3 { animation: shake-extreme 0.08s infinite linear; transform: scale(1.2); filter: drop-shadow(0 0 5px red); }
+        .lvl-4 { transform: scale(1.3); filter: drop-shadow(0 0 10px #00ff88); animation: none; }
+
+        @keyframes shake-light { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 25% { transform: translate(1px, 1px) rotate(2deg); } 75% { transform: translate(-1px, -1px) rotate(-2deg); } }
+        @keyframes shake-hard { 0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1.1); } 25% { transform: translate(-2px, 1px) rotate(-5deg) scale(1.1); } 75% { transform: translate(2px, -1px) rotate(5deg) scale(1.1); } }
+        @keyframes shake-extreme { 0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1.2); } 25% { transform: translate(-3px, -2px) rotate(-8deg) scale(1.2); } 75% { transform: translate(3px, 2px) rotate(8deg) scale(1.2); } }
+
+        /* === 完了状態 === */
+        .task-card.completed { border-color: var(--c-success); box-shadow: 0 0 20px rgba(0,255,136,0.1); }
+        .task-card.completed .slider-track { border-color: var(--c-success); box-shadow: 0 0 15px rgba(0,255,136,0.2); }
+        .task-card.completed .task-desc { color: #556677; text-decoration: line-through; }
+
+        .particle { position: fixed; width: 6px; height: 6px; background: var(--c-success); border-radius: 50%; pointer-events: none; z-index: 9999; box-shadow: 0 0 10px var(--c-success); }
+    </style>
+</head>
+<body>
+
+    <div class="bg-glow"></div>
+    <div class="scanlines"></div>
+
+    <div class="container">
+        <!-- HEADER -->
+        <header>
+            <div class="badge-today">当日提出専用</div>
+            <h1 class="title-main">TERM 3 EXAM</h1>
+            <div class="title-sys">> SLIDE TO RECORD PAGES</div>
+        </header>
+
+        <!-- GLOBAL PROGRESS -->
+        <div class="global-progress-box">
+            <div class="global-progress-fill" id="globalFill"></div>
+            <div class="global-progress-text" id="globalPercentTxt">0% - IN PROGRESS</div>
+        </div>
+
+        <!-- TASK LIST -->
+        <div class="task-list" id="taskList">
+            <!-- JSで生成 -->
+        </div>
+    </div>
+
+    <script>
+        // =========================================================
+        // 1. DATA (★数学を除外し、当日提出のみに限定)
+        // =========================================================
+        const subjects = [
+            { id: 'pe', date: '25日', name: '🏀 保健体育', tasks: [{ id: 'pe_1', max: 15, unit: 'P', desc: 'ノート：p.6〜7, p.10, p.24〜27, 30, 32〜37, 48' }] },
+            { id: 'soc', date: '25日', name: '🗺️ 社会', tasks: [{ id: 'soc_1', max: 6, unit: 'P', desc: '【歴史の学習】p.18〜23をノート(p.10〜12)にして答え合わせ' }] },
+            { id: 'eng', date: '26日', name: '🔤 英語', tasks: [{ id: 'eng_1', max: 13, unit: 'P', desc: 'エイゴラボ p.148〜160 答え合わせをする' }] },
+            { id: 'jp', date: '26日', name: '⛩️ 国語', tasks: [{ id: 'jp_1', max: 28, unit: 'P', desc: 'ワーク P.95〜102、103、104、119、143、144〜159' }] },
+            { id: 'mus', date: '26日', name: '🎵 音楽', tasks: [{ id: 'mus_1', max: 5, unit: 'P', desc: 'ワーク p.23、44、49、55、56' }] },
+            { id: 'tech', date: '27日', name: '💻 技術', tasks: [{ id: 'tech_1', max: 3, unit: 'P', desc: 'ノート P60〜61、69' }] },
+            { id: 'home', date: '27日', name: '🍳 家庭科', tasks: [
+                { id: 'home_1', max: 18, unit: 'P', desc: 'ノート（消費生活）P4〜13、16〜21、36〜37' },
+                { id: 'home_2', max: 6, unit: 'P', desc: 'ワーク P48〜50、62〜64' }
+            ]},
+            { id: 'sci', date: '27日', name: '🧪 理科', tasks: [{ id: 'sci_1', max: 30, unit: 'P', desc: 'ワークP122〜137、34〜47をすべてやり、答え合わせ' }] }
+        ];
+
+        let totalPages = 0;
+        subjects.forEach(s => s.tasks.forEach(t => totalPages += t.max));
+
+        // =========================================================
+        // 2. AUDIO ENGINE
+        // =========================================================
+        const AudioEngine = (() => {
+            let ctx = null;
+            const init = () => { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); };
+            const play = (freq, type, dur, vol) => {
+                if (!ctx) return;
+                const osc = ctx.createOscillator(); const gain = ctx.createGain();
+                osc.type = type; osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                gain.gain.setValueAtTime(0, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(); osc.stop(ctx.currentTime + dur);
+            };
+            return {
+                init,
+                tick: () => play(1800, 'triangle', 0.02, 0.015), 
+                snap: () => play(800, 'square', 0.05, 0.05),
+                lock: () => { play(1500, 'square', 0.1, 0.1); setTimeout(()=>play(2000, 'sine', 0.1, 0.1), 50); },
+                completeAll: () => { play(800, 'sine', 0.1, 0.1); setTimeout(()=>play(1200, 'sine', 0.1, 0.1), 100); setTimeout(()=>play(1600, 'sine', 0.5, 0.2), 200); }
+            };
+        })();
+
+        // =========================================================
+        // 3. UI GENERATION
+        // =========================================================
+        const taskList = document.getElementById('taskList');
+        // 保存キーを新しくし、以前のデータ（数学含む）と混ざらないようにする
+        const STORAGE_KEY = 'exam_app_progress_today_only';
+        let savedData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+
+        subjects.forEach(subj => {
+            subj.tasks.forEach(t => {
+                const currentVal = savedData[t.id] || 0;
+                const isCompleted = currentVal === t.max ? 'completed' : '';
+                
+                const card = document.createElement('div');
+                card.className = `task-card ${isCompleted}`;
+                card.id = `card_${t.id}`;
+                card.setAttribute('data-max', t.max);
+                
+                card.innerHTML = `
+                    <div class="task-header">
+                        <div class="subj-name">${subj.name}</div>
+                        <div class="subj-meta">〆 ${subj.date} (当日) | TOTAL: ${t.max}${t.unit}</div>
+                    </div>
+                    <div class="task-desc">${t.desc}</div>
+                    
+                    <div class="slider-track" id="track_${t.id}">
+                        <div class="slider-fill" id="fill_${t.id}"></div>
+                        <div class="slider-value-text" id="text_${t.id}">${currentVal} / ${t.max} ${t.unit}</div>
+                        <div class="slider-thumb" id="thumb_${t.id}">
+                            <span class="emoji" id="emoji_${t.id}">🥱</span>
+                        </div>
+                    </div>
+                `;
+                taskList.appendChild(card);
+            });
+        });
+
+        // =========================================================
+        // 4. SLIDER LOGIC
+        // =========================================================
+        document.body.addEventListener('touchstart', AudioEngine.init, { once: true });
+        document.body.addEventListener('click', AudioEngine.init, { once: true });
+
+        const thumbs = document.querySelectorAll('.slider-thumb');
+
+        const updateUIState = (taskId, currentVal, maxVal) => {
+            const percent = currentVal / maxVal;
+            const emoji = document.getElementById(`emoji_${taskId}`);
+            const fill = document.getElementById(`fill_${taskId}`);
+            const thumb = document.getElementById(`thumb_${taskId}`);
+            const card = document.getElementById(`card_${taskId}`);
+            const text = document.getElementById(`text_${taskId}`);
+            
+            text.innerText = `${currentVal} / ${maxVal} ${currentVal === maxVal ? 'DONE' : 'P'}`;
+            emoji.className = 'emoji'; 
+            
+            if (percent === 0) {
+                emoji.innerText = '🥱'; emoji.classList.add('lvl-0');
+                fill.style.background = 'var(--c-main-dim)'; thumb.style.borderColor = 'var(--c-main)';
+                card.classList.remove('completed');
+            } else if (percent < 0.3) {
+                emoji.innerText = '🥺'; emoji.classList.add('lvl-1');
+                fill.style.background = 'rgba(255, 200, 0, 0.5)'; thumb.style.borderColor = '#ffcc00';
+                card.classList.remove('completed');
+            } else if (percent < 0.7) {
+                emoji.innerText = '💦'; emoji.classList.add('lvl-2');
+                fill.style.background = 'rgba(255, 120, 0, 0.7)'; thumb.style.borderColor = '#ff7700';
+                card.classList.remove('completed');
+            } else if (percent < 1.0) {
+                emoji.innerText = '🤬'; emoji.classList.add('lvl-3');
+                fill.style.background = 'rgba(255, 0, 0, 0.8)'; thumb.style.borderColor = '#ff0000';
+                card.classList.remove('completed');
+            } else {
+                emoji.innerText = '🤩✨'; emoji.classList.add('lvl-4');
+                fill.style.background = 'var(--c-success)'; thumb.style.borderColor = 'var(--c-success)'; thumb.style.background = '#1a3322';
+                card.classList.add('completed');
+            }
+        };
+
+        const spawnParticles = (rect) => {
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            for(let i=0; i<15; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle'; document.body.appendChild(p);
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = 50 + Math.random() * 80;
+                p.style.left = `${centerX}px`; p.style.top = `${centerY}px`;
+                p.animate([
+                    { transform: 'translate(0,0) scale(1)', opacity: 1 },
+                    { transform: `translate(${Math.cos(angle)*velocity}px, ${Math.sin(angle)*velocity}px) scale(0)`, opacity: 0 }
+                ], { duration: 600 + Math.random()*400, easing: 'ease-out' });
+                setTimeout(() => p.remove(), 1000);
+            }
+        };
+
+        thumbs.forEach(thumb => {
+            const taskId = thumb.id.replace('thumb_', '');
+            const track = document.getElementById(`track_${taskId}`);
+            const fill = document.getElementById(`fill_${taskId}`);
+            const maxVal = parseInt(document.getElementById(`card_${taskId}`).getAttribute('data-max'));
+            
+            let isDragging = false;
+            let startX = 0, currentX = 0, maxDrag = 0;
+            let currentDisplayVal = savedData[taskId] || 0;
+
+            const initSetup = () => {
+                maxDrag = track.offsetWidth - thumb.offsetWidth - 6;
+                const initX = (currentDisplayVal / maxVal) * maxDrag;
+                thumb.style.transform = `translateX(${initX}px)`;
+                fill.style.width = `${(currentDisplayVal / maxVal) * 100}%`;
+                updateUIState(taskId, currentDisplayVal, maxVal);
+            };
+            setTimeout(initSetup, 100);
+
+            thumb.addEventListener('pointerdown', (e) => {
+                isDragging = true;
+                maxDrag = track.offsetWidth - thumb.offsetWidth - 6;
+                currentX = (currentDisplayVal / maxVal) * maxDrag;
+                startX = e.clientX - currentX;
+                
+                thumb.style.transition = 'none'; fill.style.transition = 'none';
+                thumb.setPointerCapture(e.pointerId);
+            });
+
+            thumb.addEventListener('pointermove', (e) => {
+                if (!isDragging) return;
+                
+                currentX = e.clientX - startX;
+                if (currentX < 0) currentX = 0;
+                if (currentX > maxDrag) currentX = maxDrag;
+
+                let newVal = Math.round((currentX / maxDrag) * maxVal);
+                
+                if (newVal !== currentDisplayVal) {
+                    currentDisplayVal = newVal;
+                    updateUIState(taskId, currentDisplayVal, maxVal);
+                    AudioEngine.tick();
+                }
+
+                thumb.style.transform = `translateX(${currentX}px)`;
+                fill.style.width = `${(currentX / maxDrag) * 100}%`;
+            });
+
+            thumb.addEventListener('pointerup', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                
+                const snapX = (currentDisplayVal / maxVal) * maxDrag;
+                
+                thumb.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                fill.style.transition = 'width 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                
+                thumb.style.transform = `translateX(${snapX}px)`;
+                fill.style.width = `${(currentDisplayVal / maxVal) * 100}%`;
+
+                if (currentDisplayVal > 0) {
+                    savedData[taskId] = currentDisplayVal;
+                } else {
+                    delete savedData[taskId];
+                }
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(savedData));
+
+                if (currentDisplayVal === maxVal) {
+                    AudioEngine.lock();
+                    spawnParticles(thumb.getBoundingClientRect());
+                } else {
+                    AudioEngine.snap();
+                }
+
+                updateGlobalProgress();
+            });
+        });
+
+        // =========================================================
+        // 5. GLOBAL PROGRESS CALCULATION
+        // =========================================================
+        const globalFill = document.getElementById('globalFill');
+        const globalPercentTxt = document.getElementById('globalPercentTxt');
+
+        function updateGlobalProgress() {
+            let totalCompletedPages = 0;
+            Object.values(savedData).forEach(val => totalCompletedPages += val);
+
+            let percent = Math.round((totalCompletedPages / totalPages) * 100);
+            if (percent > 100) percent = 100;
+
+            globalFill.style.width = `${percent}%`;
+            
+            let start = parseInt(globalPercentTxt.innerText) || 0;
+            let duration = 800;
+            let startTime = performance.now();
+            
+            function animateNum(time) {
+                let p = Math.min((time - startTime) / duration, 1);
+                let current = Math.floor(start + (percent - start) * (1 - Math.pow(1 - p, 3)));
+                
+                if (percent === 100) {
+                    globalPercentTxt.innerText = `100% - ALL CLEAR!!`;
+                } else {
+                    globalPercentTxt.innerText = `${current}% - IN PROGRESS`;
+                }
+                
+                if (p < 1) requestAnimationFrame(animateNum);
+                else {
+                    if(percent === 100) {
+                        AudioEngine.completeAll();
+                        globalFill.style.background = 'var(--c-success)';
+                        globalPercentTxt.style.color = 'var(--c-success)';
+                    } else {
+                        globalFill.style.background = '';
+                        globalPercentTxt.style.color = '#fff';
+                    }
+                }
+            }
+            requestAnimationFrame(animateNum);
+        }
+
+        updateGlobalProgress();
+
+    </script>
+</body>
+</html>
